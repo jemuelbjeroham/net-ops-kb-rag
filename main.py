@@ -1,11 +1,13 @@
-from netops_ingestion.domain.document import Document
+from pathlib import Path
+
+from netops_ingestion.ingestion.service import IngestionService
 
 
 def main() -> None:
 
-    document = Document(content="Allow HTTPs traffic to firewall")
-
-    print(document)
+    service = IngestionService()
+    documents = service.ingest(Path("sample_data/firewall_runbook.txt"))
+    print(documents)
 
 if __name__ == "__main__":
     main()

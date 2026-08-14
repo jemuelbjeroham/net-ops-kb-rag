@@ -1,0 +1,8 @@
+Firewall Change Procedure
+
+1. Verify that the change request has been approved.
+2. Take a backup of the firewall configuration.
+3. Apply the ACL changes.
+4. Validate HTTPS connectivity from the client.
+5. Monitor firewall logs for 15 minutes.
+6. Close the change ticket after validation.
