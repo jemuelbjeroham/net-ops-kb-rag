@@ -9,6 +9,13 @@ class TextLoader(BaseLoader):
 
     def load(self) -> list[Document]:
         content = self.source.read_text(encoding="utf-8")
-        document = Document(content=content)
+        document = Document(
+            content=content,
+            source=self.source,
+            metadata={
+                "loader": "TextLoader",
+                "file_type": self.source.suffix.lstrip("."),
+            },
+        )
         return [document]
 
