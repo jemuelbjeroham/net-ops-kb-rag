@@ -4,7 +4,7 @@ from netops_ingestion.loaders.base import BaseLoader
 
 class TextLoader(BaseLoader):
     """
-    This is a Loader for document of Text types
+    Loads Text documents into Document objects.
     """
 
     def load(self) -> list[Document]:
