@@ -18,7 +18,7 @@ class RecursiveChunker:
         self.chunk_overlap = chunk_overlap
 
     def chunk(self, document: Document) -> list[DocumentChunk]:
-        chunk = Document(
+        chunk = DocumentChunk(
             content=document.content,
             source=document.source,
             chunk_index=0,
