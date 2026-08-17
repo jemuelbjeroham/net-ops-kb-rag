@@ -54,3 +54,109 @@ def test_document_smaller_than_chunk_size_returns_single_chunk() -> None:
     assert chunks[0].content == document.content
     assert chunks[0].chunk_index == 0
     assert chunks[0].source == document.source
+
+
+def test_oversized_document_is_split_into_multiple_chunks() -> None:
+    document = Document(
+        content=(
+            "Firewall policy configuration is required before implementing the change.\n\n"
+            "The engineer must verify the source, destination, ports, and protocol "
+            "before applying the policy."
+        ),
+        source=Path("runbook.txt"),
+    )
+
+    chunker = RecursiveChunker(
+        chunk_size=100,
+        chunk_overlap=20,
+    )
+
+    chunks = chunker.chunk(document)
+
+    assert len(chunks) == 2
+
+    assert chunks[0].content == (
+        "Firewall policy configuration is required before implementing the change."
+    )
+
+    assert chunks[1].content == (
+        "The engineer must verify the source, destination, ports, and protocol "
+        "before applying the policy."
+    )
+
+    assert chunks[0].chunk_index == 0
+    assert chunks[1].chunk_index == 1
+
+
+def test_oversized_paragraph_is_split_further() -> None:
+    document = Document(
+        content=(
+            "The firewall administrator must verify the source address, "
+            "destination address, protocol, and destination port before "
+            "applying the firewall policy."
+        ),
+        source=Path("runbook.txt"),
+    )
+
+    chunker = RecursiveChunker(
+        chunk_size=50,
+        chunk_overlap=10,
+    )
+
+    chunks = chunker.chunk(document)
+
+    assert len(chunks) > 1
+
+
+def test_split_text_splits_using_separator() -> None:
+    chunker = RecursiveChunker(
+        chunk_size=100,
+        chunk_overlap=20,
+    )
+
+    text = "First paragraph\n\nSecond paragraph"
+
+    result = chunker._split_text(text, ["\n\n", "\n", " ", ""])
+
+    assert result == [
+        "First paragraph",
+        "Second paragraph",
+    ]
+
+
+def test_split_text_uses_next_separator_when_first_is_insufficient() -> None:
+    chunker = RecursiveChunker(
+        chunk_size=31,
+        chunk_overlap=5,
+    )
+
+    text = (
+        "First line contains some text.\n"
+        "Second line contains some text."
+    )
+
+    result = chunker._split_text(
+        text,
+        ["\n\n", "\n", " ", ""],
+    )
+
+    assert result == [
+        "First line contains some text.",
+        "Second line contains some text.",
+    ]
+
+
+def test_merge_parts_respects_chunk_size() -> None:
+    chunker = RecursiveChunker(
+        chunk_size=20,
+        chunk_overlap=5,
+    )
+
+    parts = ["The", "firewall", "administrator"]
+
+    result = chunker._merge_parts(parts, " ")
+
+    assert result == [
+        "The firewall",
+        "administrator",
+    ]

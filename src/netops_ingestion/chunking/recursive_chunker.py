@@ -18,11 +18,75 @@ class RecursiveChunker:
         self.chunk_overlap = chunk_overlap
 
     def chunk(self, document: Document) -> list[DocumentChunk]:
-        chunk = DocumentChunk(
-            content=document.content,
-            source=document.source,
-            chunk_index=0,
-            metadata=document.metadata.copy(),
-        )
+        separators = ["\n\n", "\n", " ", ""]
 
-        return [chunk]
+        text_chunks = self._split_recursive(document.content, separators)
+
+        return [
+            DocumentChunk(
+                content=text,
+                source=document.source,
+                chunk_index=index,
+                metadata=document.metadata.copy()
+            )
+            for index, text in enumerate(text_chunks)
+        ]
+
+
+    def _split_by_separator(self, text: str, separator: str) -> list[str]:
+        return text.split(separator)
+
+
+    def _merge_parts(self, parts: list[str], separator: str) -> list[str]:
+        chunks = []
+        current_chunk = ""
+
+        for part in parts:
+            if not current_chunk:
+                current_chunk = part
+                continue
+
+            candidate = current_chunk + separator + part
+
+            if len(candidate) <= self.chunk_size:
+                current_chunk = candidate
+            else:
+                chunks.append(current_chunk)
+                current_chunk = part
+
+        if current_chunk:
+            chunks.append(current_chunk)
+
+        return chunks
+
+
+    def _split_recursive(self, text: str, separators: list[str]) -> list[str]:
+        if len(text) <= self.chunk_size:
+            return [text]
+
+        if not separators:
+            return [text]
+
+        separator = separators[0]
+
+        if separator == "":
+            return [
+                text[i:i + self.chunk_size]
+                for i in range(0, len(text), self.chunk_size)
+            ]
+
+        parts = self._split_by_separator(text, separator)
+
+        merged = self._merge_parts(parts, separator)
+
+        result = []
+
+        for chunk in merged:
+            if len(chunk) <= self.chunk_size:
+                result.append(chunk)
+            else:
+                result.extend(
+                    self._split_recursive(chunk, separators[1:])
+                )
+
+        return result
