@@ -108,7 +108,7 @@ def test_oversized_paragraph_is_split_further() -> None:
     assert len(chunks) > 1
 
 
-def test_split_text_splits_using_separator() -> None:
+def test_split_by_separator() -> None:
     chunker = RecursiveChunker(
         chunk_size=100,
         chunk_overlap=20,
@@ -116,7 +116,7 @@ def test_split_text_splits_using_separator() -> None:
 
     text = "First paragraph\n\nSecond paragraph"
 
-    result = chunker._split_text(text, ["\n\n", "\n", " ", ""])
+    result = chunker._split_by_separator(text, "\n\n")
 
     assert result == [
         "First paragraph",
@@ -124,7 +124,7 @@ def test_split_text_splits_using_separator() -> None:
     ]
 
 
-def test_split_text_uses_next_separator_when_first_is_insufficient() -> None:
+def test_split_recursive_uses_next_separator_when_first_is_insufficient() -> None:
     chunker = RecursiveChunker(
         chunk_size=31,
         chunk_overlap=5,
@@ -135,7 +135,8 @@ def test_split_text_uses_next_separator_when_first_is_insufficient() -> None:
         "Second line contains some text."
     )
 
-    result = chunker._split_text(
+    result = chunker._split_recursive(
+
         text,
         ["\n\n", "\n", " ", ""],
     )
