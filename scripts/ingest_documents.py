@@ -1,8 +1,11 @@
 from pathlib import Path
 
 from netops_ingestion.chunking.library_recursive import LibraryRecursiveChunker
+from netops_ingestion.embeddings.sentence_transformer import (
+    SentenceTransformerEmbedding,
+)
 from netops_ingestion.loaders.factory import LoaderFactory
-from netops_ingestion.embeddings.sentence_transformer import (SentenceTransformerEmbedding,)
+from netops_ingestion.vector_store.chroma_store import ChromaVectorStore
 
 
 def main() -> None:
@@ -37,6 +40,11 @@ def main() -> None:
 
     print(f"Created {len(embeddings)} embeddings")
 
+    vector_store = ChromaVectorStore(collection_name="netops_kb", persist_directory="storage/chroma")
+
+    vector_store.add(chunks=chunks, embeddings=embeddings)
+
+    print(f"Stored {len(chunks)} chunks in Chroma")
     # for chunk in chunks:
     #     if chunk.metadata.get("file_type") == "pdf":
     #         print("--- PDF CHUNK ---")
