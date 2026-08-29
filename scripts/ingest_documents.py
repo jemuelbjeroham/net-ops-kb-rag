@@ -2,6 +2,7 @@ from pathlib import Path
 
 from netops_ingestion.chunking.library_recursive import LibraryRecursiveChunker
 from netops_ingestion.loaders.factory import LoaderFactory
+from netops_ingestion.embeddings.sentence_transformer import (SentenceTransformerEmbedding,)
 
 
 def main() -> None:
@@ -27,6 +28,14 @@ def main() -> None:
         chunks.extend(chunker.chunk(document))
 
     print(f"Created {len(chunks)} chunks")
+
+    embedding_model = SentenceTransformerEmbedding("Qwen/Qwen3-Embedding-0.6B")
+
+    embeddings = embedding_model.embed([chunk.content for chunk in chunks])
+    if len(chunks) != len(embeddings):
+        raise RuntimeError("Number of chunks does not match number of embeddings")
+
+    print(f"Created {len(embeddings)} embeddings")
 
     # for chunk in chunks:
     #     if chunk.metadata.get("file_type") == "pdf":
