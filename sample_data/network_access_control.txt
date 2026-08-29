@@ -1,0 +1,152 @@
+====================================================================
+JemTechnologies — Network Security Team
+Document: Network Access Control Standard
+Doc ID: NST-STD-007
+Version: 2.0
+Last Reviewed: 2026-01-29
+Owner: Network Security Operations (NSO)
+Classification: Internal Use Only
+====================================================================
+
+1. PURPOSE
+--------------------------------------------------------------------
+This standard defines how JemTechnologies structures network access
+control through the relationship between VLANs, ACLs, network
+segmentation, and least-privilege access principles. It is the
+reference document for designing new segments and for reviewing
+ACL/firewall rule requests against approved access patterns.
+
+2. VLAN / ACL RELATIONSHIPS
+--------------------------------------------------------------------
+2.1 Model
+    - Each VLAN represents a distinct trust zone with a defined
+      purpose. Every VLAN has an associated ingress and egress ACL
+      applied at its Layer 3 boundary (router/firewall interface),
+      not left to default permit.
+    - VLAN-to-ACL mapping is maintained in the authoritative
+      VLAN/ACL Matrix (JemTech-VLAN-Matrix), which must be updated
+      whenever a VLAN is created, retired, or re-purposed.
+
+2.2 Standard VLAN Ranges
+    VLAN 100–199: Corporate user segments (by office/floor)
+    VLAN 200–299: Server/application tiers (by environment)
+    VLAN 300–399: Database tiers
+    VLAN 400–499: Guest and third-party contractor access
+    VLAN 900:     Out-of-band network management
+    VLAN 999:     Quarantine / Emergency Isolation
+
+2.3 Default Posture
+    - Every VLAN boundary defaults to deny; explicit allow rules
+      are required for any cross-VLAN communication.
+    - Intra-VLAN traffic is permitted by default only within user
+      and guest segments; server and database tiers require
+      explicit intra-VLAN rules as well, to limit lateral movement
+      even among peer hosts.
+
+3. SOURCE/DESTINATION RESTRICTIONS
+--------------------------------------------------------------------
+3.1 Object-Based Rules
+    - ACL and firewall rules must reference specific host or
+      subnet objects rather than broad ranges wherever operationally
+      feasible.
+    - Use of "any" as a source or destination requires Medium or
+      High risk classification and explicit Network Security Lead
+      approval, per network_security_sop.txt.
+
+3.2 Directionality
+    - Rules are defined per direction (ingress/egress) rather than
+      relying on stateful return-traffic assumptions alone, except
+      where the platform's stateful inspection is the documented
+      and approved mechanism for return traffic.
+
+3.3 Service/Port Restriction
+    - Rules must specify the minimum necessary port/protocol; broad
+      port ranges are only approved for well-justified use cases
+      (e.g., passive FTP ranges) and are documented as exceptions
+      in the Firewall Rule Register.
+
+4. NETWORK SEGMENTATION
+--------------------------------------------------------------------
+4.1 Segmentation Tiers
+    - Tier 0 — Management: out-of-band management network,
+      isolated from all production data paths.
+    - Tier 1 — Perimeter/DMZ: internet-facing services, isolated
+      from internal corporate and data tiers.
+    - Tier 2 — Application: internal application servers, reachable
+      from DMZ only through defined service ports.
+    - Tier 3 — Data: database and storage tiers, reachable only
+      from Tier 2 application hosts on defined ports; never
+      directly reachable from DMZ or corporate user VLANs.
+    - Tier 4 — Corporate User: standard employee workstations,
+      segmented by office/function, with no direct path to Tier 3.
+
+4.2 Cross-Tier Traffic
+    - All cross-tier traffic must traverse a firewall enforcement
+      point; VLAN routing between tiers via a router-only path
+      (bypassing the firewall) is not permitted.
+    - Cross-tier rules require Normal Change approval at minimum,
+      regardless of how minor the request appears.
+
+4.3 Cloud Segmentation Parity
+    - jemtech-prod-vpc and jemtech-dr-vpc subnets are mapped to the
+      same tiering model using Security Groups and NACLs, with the
+      VLAN/ACL Matrix extended to include cloud subnet equivalents.
+
+5. LEAST PRIVILEGE
+--------------------------------------------------------------------
+5.1 Principle
+    - Access is granted based on documented business need only,
+      scoped to the minimum source, destination, port, and duration
+      required.
+
+5.2 Application at Rule Level
+    - New access requests default to the narrowest viable scope;
+      requestors must justify any broadening beyond a single host
+      or single service.
+    - Temporary access (e.g., for a migration or short-term
+      integration) must include an expiration date and is tracked
+      for automatic review at expiry.
+
+5.3 Periodic Access Review
+    - Quarterly, NSO reviews all standing cross-tier and cross-VLAN
+      rules against current business justification; rules without
+      a valid, current owner or justification are flagged for
+      removal.
+
+6. EXCEPTION HANDLING
+--------------------------------------------------------------------
+6.1 When an Exception May Be Requested
+    - A legitimate business or technical need cannot be met within
+      the standard segmentation/least-privilege model described
+      above (e.g., a legacy system requiring broader access during
+      a defined migration period).
+
+6.2 Exception Request Process
+    - Submit an Exception Request in JemCM including business
+      justification, compensating controls, and a defined
+      expiration or re-review date (maximum initial duration: 180
+      days).
+    - Exception requests affecting Tier 3 (Data) or Tier 0
+      (Management) require Director of Infrastructure Security
+      approval in addition to standard CAB review.
+
+6.3 Compensating Controls
+    - All exceptions require at minimum: enhanced logging on the
+      exception rule, and inclusion in the weekly exception
+      monitoring review.
+    - High-risk exceptions may additionally require dedicated
+      IDS/IPS signature tuning or a time-boxed monitoring alert
+      threshold.
+
+6.4 Exception Register and Expiry
+    - All active exceptions are tracked in the Network Access
+      Exception Register with owner, justification, compensating
+      controls, and expiry date.
+    - Expired exceptions are automatically flagged for removal;
+      if no renewal request is submitted within 15 days of
+      expiration, NSO removes the exception rule and notifies the
+      original requestor.
+
+====================================================================
+End of Document — NST-STD-007
+====================================================================

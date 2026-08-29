@@ -1,0 +1,151 @@
+====================================================================
+JemTechnologies — Network Security Team
+Document: Network Security Standard Operating Procedures (SOP)
+Doc ID: NST-SOP-002
+Version: 2.4
+Last Reviewed: 2026-05-02
+Owner: Network Security Operations (NSO)
+Classification: Internal Use Only
+====================================================================
+
+1. PURPOSE
+--------------------------------------------------------------------
+This SOP defines the standard, repeatable process that all
+JemTechnologies Network Security Operations (NSO) engineers must
+follow when making any configuration change to network security
+infrastructure, including firewalls, routers, switches, VPN
+concentrators, load balancers with security policy functions, and
+cloud network security constructs (Security Groups, NACLs).
+
+This SOP applies to planned, standard, and emergency changes alike,
+though emergency changes follow the abbreviated path defined in
+Section 2.4.
+
+2. CHANGE APPROVAL
+--------------------------------------------------------------------
+2.1 Change Categories
+    - Standard Change: Pre-approved, low-risk, follows a documented
+      template (e.g., adding a single host to an existing allow
+      rule). Requires peer review only.
+    - Normal Change: Requires review by the Change Advisory Board
+      (CAB) and a minimum 24-hour notice window.
+    - Emergency Change: Required to resolve an active incident or
+      prevent imminent harm. Follows Section 2.4.
+
+2.2 Change Request Requirements
+    Every change request submitted in JemTech Change Management
+    (JemCM) must include:
+        - Business justification and requestor
+        - Affected devices, zones, and rule/ACL numbers
+        - Exact before/after configuration diff
+        - Rollback plan (see Section 5)
+        - Validation plan (see Section 4)
+        - Requested change window
+        - Risk classification (Low/Medium/High)
+
+2.3 Approval Authority
+    - Standard Change: Peer NSO engineer (not the requestor)
+    - Normal Change: CAB approval plus Network Security Lead
+      sign-off; High-risk changes additionally require Director of
+      Infrastructure Security sign-off.
+    - Emergency Change: Verbal or written approval from the
+      on-call Network Security Lead, with retroactive CAB
+      documentation.
+
+2.4 Emergency Change Path
+    - May be invoked only for active incident containment or to
+      prevent imminent service-impacting failure.
+    - Requires notification to the Network Security Lead before
+      or immediately after implementation (within 5 minutes).
+    - A full change record, including retroactive approval, must
+      be filed in JemCM within 4 business hours.
+
+3. CONFIGURATION BACKUP
+--------------------------------------------------------------------
+3.1 Pre-Change Backup (Mandatory)
+    - Before any change, the engineer pulls and archives the
+      current running configuration of every affected device to
+      the Configuration Backup Repository (JemTech-ConfigRepo),
+      tagged with the change ticket number.
+    - Backup must include: running-config, active rulebase/policy
+      export, and routing table snapshot where routing is affected.
+
+3.2 Automated Nightly Backups
+    - All network security devices are backed up nightly via
+      JemTech Config Manager at 02:00 local time regardless of
+      change activity. Retention: 90 days rolling, plus 12 monthly
+      snapshots retained for 1 year.
+
+3.3 Backup Integrity Checks
+    - Weekly automated job verifies each backup is parseable and
+      non-empty; failures alert the NSO on-call queue.
+
+4. VALIDATION
+--------------------------------------------------------------------
+4.1 Pre-Implementation Validation
+    - Syntax-check the proposed configuration in the offline
+      config validator (JemTech-ConfigLint) before applying.
+    - Confirm the change does not conflict with existing rules
+      using the rule-conflict analyzer.
+
+4.2 Implementation-Time Validation
+    - Apply change in a maintenance window unless emergency.
+    - Immediately confirm the device accepted the configuration
+      without errors (show config status / commit confirmation).
+
+4.3 Post-Implementation Validation
+    - Confirm intended traffic now passes and unintended traffic
+      remains blocked, using controlled test probes.
+    - Confirm no unrelated services were impacted by checking
+      health dashboards for adjacent systems for 15 minutes
+      post-change.
+    - Requestor or asset owner confirms functional validation from
+      their side before the change ticket is marked complete.
+
+5. ROLLBACK
+--------------------------------------------------------------------
+5.1 Rollback Triggers
+    - Validation failure in Section 4.3
+    - Unintended service impact reported by any team within the
+      change window or the following 2 hours ("rollback window")
+    - Security concern identified with the new configuration
+
+5.2 Rollback Procedure
+    - Restore the pre-change backup captured in Section 3.1 to the
+      affected device(s).
+    - Re-run post-implementation validation (Section 4.3) against
+      the restored configuration to confirm return to known-good
+      state.
+    - Document rollback reason and timeline in the change ticket.
+
+5.3 Rollback Authority
+    - Any NSO engineer may initiate rollback during the active
+      change window without additional approval.
+    - Rollback after the change window requires Network Security
+      Lead notification but not re-approval.
+
+6. CHANGE CLOSURE
+--------------------------------------------------------------------
+6.1 Closure Checklist
+    - Post-implementation validation completed and recorded
+    - Configuration backup of the new state captured and archived
+    - Firewall Rule Register / ACL documentation / topology
+      diagrams updated to reflect the change
+    - Change ticket updated with final status, evidence, and
+      closure notes
+    - Requestor notified of completion
+
+6.2 Change Review
+    - All Normal and Emergency changes are reviewed at the weekly
+      NSO Change Review meeting, regardless of outcome.
+    - Any change that required rollback is reviewed for root cause
+      and potential SOP/runbook updates.
+
+6.3 Documentation Retention
+    - Closed change records are retained in JemCM for a minimum of
+      3 years per JemTechnologies records retention policy
+      (COMP-RET-001).
+
+====================================================================
+End of Document — NST-SOP-002
+====================================================================

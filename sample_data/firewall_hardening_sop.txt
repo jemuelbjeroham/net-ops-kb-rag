@@ -1,0 +1,154 @@
+====================================================================
+JemTechnologies — Network Security Team
+Document: Firewall Hardening Standard Operating Procedure
+Doc ID: NST-SOP-006
+Version: 1.6
+Last Reviewed: 2026-02-18
+Owner: Network Security Operations (NSO)
+Classification: Internal Use Only
+====================================================================
+
+1. PURPOSE
+--------------------------------------------------------------------
+This SOP defines the baseline hardening standard that must be
+applied to every firewall (physical or virtual) deployed within
+JemTechnologies network infrastructure, at initial deployment and
+on an ongoing basis via quarterly compliance review.
+
+2. DISABLE UNUSED SERVICES
+--------------------------------------------------------------------
+2.1 Baseline Requirement
+    - Only services required for management, routing/security
+      function, and monitoring may remain enabled. All other
+      factory-default services must be disabled at deployment.
+
+2.2 Commonly Disabled Services
+    - Telnet (management must use SSHv2 only)
+    - HTTP management interface (HTTPS only, TLS 1.2+)
+    - Unused dynamic routing protocols not in use on that device
+    - Any vendor cloud-management "phone home" feature not
+      explicitly approved by the Network Security Lead
+    - Unused VPN types (e.g., disable PPTP/L2TP where only IPsec/
+      SSL VPN is standardized)
+
+2.3 Quarterly Review
+    - NSO runs an automated service-enumeration scan against each
+      firewall's management interface each quarter and reconciles
+      against the approved service baseline.
+
+3. MANAGEMENT-PLANE RESTRICTIONS
+--------------------------------------------------------------------
+3.1 Management Access Source Restriction
+    - Management interfaces (web UI, SSH, API) must only accept
+      connections from the dedicated Management VLAN
+      (VLAN 900 — see network_access_control.txt) or the
+      out-of-band management network.
+    - No management interface may be reachable from a general
+      user VLAN or from the public internet.
+
+3.2 Management Protocol Standards
+    - SSH: version 2 only, strong ciphers/MACs per the current
+      JemTechnologies Cryptographic Standards document
+      (CRYPTO-STD-002).
+    - HTTPS management: TLS 1.2 minimum, valid internally-issued
+      certificate, auto-renewed via JemTech PKI.
+    - SNMP: v3 only with authentication and encryption; v1/v2c
+      disabled.
+
+3.3 API Access
+    - Programmatic/API access to firewall management is restricted
+      to approved automation service accounts, scoped to the
+      minimum required permission set, and logged separately from
+      interactive admin sessions.
+
+4. ADMINISTRATIVE ACCESS
+--------------------------------------------------------------------
+4.1 Account Standards
+    - No shared/generic administrative accounts. Every
+      administrator authenticates with an individually attributable
+      account via centralized AAA (JemTech-RADIUS/TACACS+).
+    - Local device accounts are limited to a documented emergency
+      "break-glass" account with credentials held in the secured
+      credential vault (JemVault), not used for routine access.
+
+4.2 Role-Based Access
+    - Administrative roles follow least privilege: read-only,
+      operator (rule changes within approved workflow), and full
+      admin (device/OS-level changes) are distinct roles.
+    - Full admin role is limited to NSO Lead and designated senior
+      engineers; standard NSO engineers use the operator role for
+      day-to-day change implementation.
+
+4.3 Session Controls
+    - Administrative sessions time out after 15 minutes of
+      inactivity.
+    - Concurrent session limits are enforced per account.
+    - Multi-factor authentication is required for all interactive
+      administrative access, no exceptions.
+
+5. LOGGING
+--------------------------------------------------------------------
+5.1 Administrative Activity Logging
+    - All administrative logins, logouts, and configuration
+      commands are logged and forwarded to JemSIEM in real time.
+    - Failed authentication attempts trigger an alert after 3
+      consecutive failures within 5 minutes.
+
+5.2 Log Integrity
+    - Firewalls forward logs to JemSIEM over an encrypted channel;
+      local log buffers are retained as a fallback for 7 days in
+      case of connectivity loss to the collector.
+    - Log configuration changes (e.g., disabling logging on a rule)
+      require the same change approval as any other configuration
+      change (network_security_sop.txt Section 2).
+
+6. PASSWORD/KEY POLICIES
+--------------------------------------------------------------------
+6.1 Password Standards (where password auth is unavoidable, e.g.
+    break-glass accounts)
+    - Minimum 16 characters, complexity per CRYPTO-STD-002.
+    - Rotated every 90 days or immediately upon suspected exposure
+      or personnel change with access.
+    - Stored only in JemVault; never in plaintext configuration
+      files or shared documents.
+
+6.2 SSH Key Standards
+    - Minimum RSA-4096 or ED25519 for SSH key-based authentication.
+    - Keys are tied to individual accounts, not shared, and rotated
+      annually or upon personnel offboarding.
+
+6.3 Certificate Management
+    - Device management and VPN certificates are issued by JemTech
+      PKI, tracked for expiration in JemTech Config Manager, and
+      renewed at least 30 days before expiry.
+
+7. CONFIGURATION BACKUPS
+--------------------------------------------------------------------
+7.1 Hardening Baseline Backup
+    - After initial hardening and after any hardening-related
+      change, a configuration snapshot is captured and tagged
+      "hardening-baseline" in the Configuration Backup Repository.
+
+7.2 Ongoing Backups
+    - Standard nightly backup schedule applies (see
+      network_security_sop.txt Section 3.2); hardening-relevant
+      settings are included in the automated drift-detection
+      comparison against the current baseline.
+
+7.3 Drift Detection
+    - Weekly automated comparison flags any deviation from the
+      hardening baseline (e.g., a disabled service re-enabled,
+      a management ACL loosened) for NSO review within 1 business
+      day.
+
+8. COMPLIANCE REVIEW CADENCE
+--------------------------------------------------------------------
+    - Quarterly: full hardening checklist review per device,
+      documented in the Hardening Compliance Tracker.
+    - Annually: third-party or internal audit team validates a
+      sample of devices against this SOP as part of
+      JemTechnologies' broader security compliance program.
+
+====================================================================
+End of Document — NST-SOP-006
+====================================================================

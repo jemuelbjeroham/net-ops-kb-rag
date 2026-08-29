@@ -1,0 +1,148 @@
+====================================================================
+JemTechnologies — Network Security Team
+Document: Firewall Change Procedure
+Doc ID: NST-PROC-005
+Version: 2.1
+Last Reviewed: 2026-03-11
+Owner: Network Security Operations (NSO)
+Classification: Internal Use Only
+====================================================================
+
+1. PURPOSE
+--------------------------------------------------------------------
+This procedure defines the step-by-step process for implementing
+any change to firewall rules, NAT entries, or firewall-enforced
+ACLs across JemTechnologies network security infrastructure. It is
+a practical implementation of the change principles defined in
+network_security_sop.txt, scoped specifically to firewall rule
+changes.
+
+2. PRE-CHANGE CHECKS
+--------------------------------------------------------------------
+2.1 Request Validation
+    - Confirm the change ticket includes business justification,
+      exact rule specification (source, destination, port/protocol,
+      action), and requested duration (permanent vs. temporary).
+    - Confirm the requestor has authority over the source or
+      destination asset, or has sign-off from the asset owner.
+
+2.2 Conflict and Risk Check
+    - Run the proposed rule through the rule-conflict analyzer to
+      identify shadowing, redundancy, or overlap with existing
+      rules.
+    - Confirm the rule does not violate the least-privilege
+      principles in network_access_control.txt (e.g., no
+      unnecessary "any" source/destination).
+    - Classify risk (Low/Medium/High) per network_security_sop.txt
+      Section 2.2.
+
+2.3 Configuration Backup
+    - Capture and archive current running configuration and active
+      rulebase for every device to be changed, per
+      network_security_sop.txt Section 3.1. Do not proceed without
+      a verified backup.
+
+2.4 Peer Review / CAB Approval
+    - Standard changes: peer NSO engineer review and sign-off in
+      JemCM.
+    - Normal changes: CAB approval and Network Security Lead
+      sign-off obtained before the scheduled window.
+    - Emergency changes: verbal/written Network Security Lead
+      approval per network_security_sop.txt Section 2.4.
+
+3. IMPLEMENTATION
+--------------------------------------------------------------------
+3.1 Rule Construction Standards
+    - Use the most specific source/destination objects available;
+      avoid "any" unless explicitly justified and approved as
+      High risk.
+    - Name rules descriptively, including ticket number, e.g.:
+          ALLOW-CM48213-appsvc-to-dbtier-tcp5432
+    - Set an explicit expiration date for any temporary rule and
+      log it in the Firewall Rule Register for expiry tracking.
+
+3.2 NAT Considerations
+    - When the change involves NAT, explicitly document the
+      pre-NAT and post-NAT address/port pairs in the change ticket.
+    - Confirm the associated firewall policy rule references the
+      correct (pre- or post-NAT, per platform convention) address
+      objects — a common source of "phantom" denies.
+    - Verify no existing NAT rule already covers the same traffic
+      to avoid conflicting translations.
+
+3.3 Rule Ordering
+    - Insert new rules in the correct position relative to existing
+      rules; on first-match platforms, verify the new rule is not
+      shadowed by a broader rule earlier in the policy.
+    - For deny/block rules intended to pre-empt a broader allow,
+      confirm placement above the relevant allow rule.
+    - Re-run the rule-conflict analyzer after insertion to confirm
+      final ordering behaves as intended.
+
+3.4 Logging
+    - Enable logging on every new or modified rule unless an
+      explicit, documented exception exists (e.g., extremely
+      high-volume internal telemetry rules approved by the Network
+      Security Lead).
+    - Confirm log forwarding to JemSIEM is functioning for the
+      device before considering the change complete.
+
+3.5 Apply the Change
+    - Apply within the approved change window (or immediately for
+      approved emergency changes).
+    - Commit configuration and confirm the device reports a clean
+      commit with no syntax or validation errors.
+
+4. POST-CHANGE VALIDATION
+--------------------------------------------------------------------
+4.1 Functional Validation
+    - Confirm the intended traffic now passes using controlled
+      test probes and, where possible, confirmation from the
+      requestor/asset owner.
+    - Confirm traffic that should remain blocked is still blocked
+      (negative test), especially for rules that widen access.
+
+4.2 Regression Check
+    - Monitor health dashboards for any adjacent system for 15
+      minutes following the change to catch unintended impact.
+    - Spot-check that unrelated existing rules were not
+      inadvertently affected by reordering (Section 3.3).
+
+4.3 Logging Confirmation
+    - Confirm log entries are being generated for the new/modified
+      rule and are visible in JemSIEM within 5 minutes of test
+      traffic.
+
+5. ROLLBACK CRITERIA
+--------------------------------------------------------------------
+5.1 Automatic Rollback Triggers
+    - Post-change validation (Section 4) fails.
+    - Any monitored service shows a health degradation correlated
+      with the change within the rollback window (2 hours).
+    - The change is found to violate least-privilege or
+      segmentation requirements upon review.
+
+5.2 Rollback Steps
+    - Restore the configuration backup captured in Section 2.3.
+    - Re-validate the restored configuration using Section 4
+      checks.
+    - Notify the requestor and Network Security Lead of the
+      rollback and reason.
+
+5.3 Post-Rollback
+    - Document root cause of the failed change.
+    - Resubmit a revised change request addressing the root cause
+      before attempting the change again.
+
+6. CHANGE CLOSURE
+--------------------------------------------------------------------
+    - Update the Firewall Rule Register with the final rule,
+      owner, business justification, and expiration date (if any).
+    - Update topology/documentation if the change altered logical
+      flow, not just a single rule entry.
+    - Close the change ticket per network_security_sop.txt Section
+      6.
+
+====================================================================
+End of Document — NST-PROC-005
+====================================================================

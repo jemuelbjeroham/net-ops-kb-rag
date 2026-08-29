@@ -1,0 +1,218 @@
+====================================================================
+JemTechnologies — Network Security Team
+Document: Network Security Incident Response Runbook
+Doc ID: NST-RB-001
+Version: 3.2
+Last Reviewed: 2026-06-15
+Owner: Network Security Operations (NSO)
+Classification: Internal Use Only
+====================================================================
+
+1. PURPOSE AND SCOPE
+--------------------------------------------------------------------
+This runbook defines the standard workflow that JemTechnologies
+Network Security Operations (NSO) engineers follow when responding
+to a suspected or confirmed network security incident. It applies
+to all production and staging network segments owned by
+JemTechnologies, including corporate LAN, data center fabric,
+cloud VPCs (jemtech-prod-vpc, jemtech-dr-vpc), and remote access
+infrastructure (VPN concentrators, ZTNA gateways).
+
+This document does NOT cover application-layer security incidents
+(see AppSec-IR-004) or physical security incidents (see FAC-SEC-010).
+
+2. INCIDENT SEVERITY CLASSIFICATION
+--------------------------------------------------------------------
+SEV-1 (Critical): Active exfiltration, ransomware propagation,
+    confirmed compromise of core routing/firewall infrastructure,
+    or loss of connectivity to a production data center.
+SEV-2 (High): Suspected lateral movement, anomalous traffic from
+    a trusted zone, firewall/IDS bypass, repeated failed admin
+    logins on network devices.
+SEV-3 (Medium): Policy violations, unusual but non-malicious
+    traffic spikes, single-host anomalies contained by existing
+    controls.
+SEV-4 (Low): Informational alerts, expected maintenance-related
+    noise, false positives pending tuning.
+
+3. NETWORK SECURITY INCIDENT WORKFLOW
+--------------------------------------------------------------------
+Step 1 — Detection & Triage (Target: within 10 minutes of alert)
+    1.1 On-call NSO engineer acknowledges the alert in the SIEM
+        (JemSIEM) or from the NOC handoff.
+    1.2 Classify severity per Section 2.
+    1.3 Open an incident ticket in JemTech ServiceDesk under the
+        "NetSec-Incident" queue; tag with severity and affected
+        segment(s).
+    1.4 For SEV-1/SEV-2, page the Network Security Lead and open
+        a dedicated incident bridge (#netsec-incident-bridge).
+
+Step 2 — Initial Containment Assessment
+    2.1 Identify affected zones, VLANs, and device inventory using
+        the CMDB (JemCMDB) and current topology diagram
+        (NST-TOPO-2026).
+    2.2 Determine whether containment can be achieved via existing
+        firewall/ACL controls (see Sections 4–5) without a
+        production-impacting change.
+    2.3 If immediate isolation is required, follow the Emergency
+        Isolation Procedure (Appendix A) rather than the standard
+        Firewall Change Procedure.
+
+Step 3 — Firewall and ACL Verification (see Sections 4–5 below)
+
+Step 4 — Connectivity Troubleshooting (see Section 6 below)
+
+Step 5 — Evidence Collection and Logging (see Section 7 below)
+
+Step 6 — Remediation
+    6.1 Implement containment or corrective changes through the
+        standard Firewall Change Procedure (firewall_change_
+        procedure.txt) unless emergency authority applies.
+    6.2 Validate remediation using the checks in Section 4.3 and
+        Section 6.4.
+    6.3 Confirm with the requesting team / asset owner that normal
+        operations are restored.
+
+Step 7 — Escalation (see Section 8 below, as needed at any step)
+
+Step 8 — Post-Incident Review
+    8.1 Within 3 business days of SEV-1/SEV-2 closure, the NSO
+        Lead schedules a post-incident review (PIR).
+    8.2 PIR output is logged in the Incident Knowledge Base with
+        root cause, timeline, and any runbook/SOP updates required.
+    8.3 Update firewall rule documentation and topology diagrams if
+        the incident resulted in permanent configuration changes.
+
+4. FIREWALL VERIFICATION
+--------------------------------------------------------------------
+4.1 Confirm Current Rule State
+    - Pull the active rulebase from the perimeter and internal
+      firewall clusters (jemtech-fw-core-01/02, jemtech-fw-edge-
+      01/02) via the management console or CLI:
+          show running-config firewall
+          show rulebase policy
+    - Compare against the last known-good baseline stored in the
+      configuration backup repository (see network_security_sop.txt
+      Section on Configuration Backup).
+
+4.2 Verify Rule Intent vs. Rule Behavior
+    - Confirm that rules match documented business intent in the
+      Firewall Rule Register (JemTech-FW-Register).
+    - Check for shadowed rules, overly permissive "any-any" entries,
+      or unauthorized recent changes using the change log
+      (show config audit-log last 24h).
+
+4.3 Post-Verification Validation
+    - Test representative flows with controlled probes (see
+      Section 6.3) to confirm rules behave as expected.
+    - Confirm logging is enabled on any rule touched during the
+      incident (see Section 7).
+
+5. ACL CHECKS
+--------------------------------------------------------------------
+5.1 Router/Switch ACL Review
+    - Review ingress/egress ACLs on affected VLAN interfaces:
+          show access-lists
+          show ip interface <if> | include access list
+    - Cross-reference against the VLAN/ACL relationship matrix in
+      network_access_control.txt.
+
+5.2 Cloud Security Group / NACL Review
+    - For jemtech-prod-vpc and jemtech-dr-vpc, review Security
+      Group rules and Network ACLs attached to affected subnets.
+    - Confirm no overly broad inbound rules (0.0.0.0/0 on sensitive
+      ports) were introduced without an approved change record.
+
+5.3 ACL Consistency Check
+    - Confirm ACLs on redundant/paired devices are symmetric
+      (both sides of an HA pair, both directions of a link) unless
+      intentionally asymmetric per design documentation.
+
+6. CONNECTIVITY TROUBLESHOOTING
+--------------------------------------------------------------------
+6.1 Establish Baseline
+    - Determine last known-good state and time of last confirmed
+      normal connectivity from monitoring history (JemNMS).
+
+6.2 Layered Diagnosis
+    - Physical/Link: interface status, error counters, optics.
+    - Network/Routing: reachability (ping, traceroute), routing
+      table state, BGP/OSPF neighbor status where applicable.
+    - Firewall/ACL: policy hits, deny counters, session table
+      entries.
+    - DNS: resolution tests against internal and external
+      resolvers.
+    (Full decision tree in firewall_troubleshooting.txt.)
+
+6.3 Controlled Test Traffic
+    - Use pre-approved test hosts/probes in the NSO toolkit
+      (jemtech-probe-01, jemtech-probe-02) to generate representative
+      TCP/UDP/ICMP traffic and confirm expected pass/deny behavior.
+
+6.4 Validation
+    - Confirm restored connectivity from the actual affected
+      source, not only from probe hosts, before closing the
+      incident step.
+
+7. LOGGING AND MONITORING
+--------------------------------------------------------------------
+7.1 Required Log Sources During an Incident
+    - Firewall traffic and threat logs (JemSIEM index: fw-*)
+    - Router/switch syslog (JemSIEM index: net-syslog-*)
+    - NetFlow/IPFIX records (JemFlow collector)
+    - VPN/ZTNA authentication and session logs
+    - IDS/IPS alerts (JemIDS)
+
+7.2 Evidence Preservation
+    - Export relevant log windows (incident start minus 1 hour
+      through resolution plus 1 hour) to the incident case folder
+      before log rotation/retention windows expire.
+    - Record device configuration snapshots (before and after any
+      change) per network_security_sop.txt.
+
+7.3 Monitoring During Remediation
+    - Keep an active monitoring dashboard open on the affected
+      segment throughout remediation to detect regression or
+      renewed malicious activity.
+
+8. ESCALATION PROCEDURES
+--------------------------------------------------------------------
+8.1 Escalation Path
+    Tier 1: On-call NSO Engineer
+    Tier 2: Network Security Lead
+    Tier 3: Director of Infrastructure Security
+    Tier 4: CISO (JemTechnologies Security Office)
+
+8.2 Escalation Triggers
+    - Any SEV-1 incident escalates to Tier 2 immediately upon
+      classification.
+    - Any SEV-1 incident affecting customer-facing services
+      escalates to Tier 3/4 within 30 minutes and triggers the
+      Major Incident communication process.
+    - Escalate immediately, regardless of severity, if there is
+      suspected involvement of insider threat, legal/regulatory
+      exposure, or law enforcement notification requirements.
+
+8.3 External Escalation
+    - Legal, Communications, and Compliance are looped in by the
+      Director of Infrastructure Security or CISO only — individual
+      NSO engineers do not contact external parties directly.
+
+8.4 Communication Cadence
+    - SEV-1: status updates every 30 minutes on the incident bridge.
+    - SEV-2: status updates every 2 hours.
+    - SEV-3/4: daily summary until closure.
+
+APPENDIX A — EMERGENCY ISOLATION PROCEDURE (SUMMARY)
+--------------------------------------------------------------------
+When active compromise requires immediate isolation ahead of the
+standard change process, an NSO Engineer at Tier 1 or above may:
+    a) Apply a pre-approved emergency ACL/quarantine rule template
+       from the "Emergency-Isolation" rule group.
+    b) Notify the Network Security Lead within 5 minutes of action.
+    c) Open a retroactive change record within 4 hours, per
+       network_security_sop.txt Section on Change Approval.
+
+====================================================================
+End of Document — NST-RB-001
+====================================================================

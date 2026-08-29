@@ -1,0 +1,178 @@
+====================================================================
+JemTechnologies — Network Security Team
+Document: Firewall & Connectivity Troubleshooting Guide
+Doc ID: NST-TS-004
+Version: 1.9
+Last Reviewed: 2026-04-20
+Owner: Network Security Operations (NSO)
+Classification: Internal Use Only
+====================================================================
+
+1. PURPOSE
+--------------------------------------------------------------------
+This guide gives JemTechnologies NSO and NOC engineers a structured
+approach to diagnosing connection failures reported by internal
+teams or detected via monitoring, and to determining whether the
+root cause is DNS, routing, or firewall policy before making any
+change.
+
+2. CONNECTION FAILURE INTAKE
+--------------------------------------------------------------------
+2.1 Required Information from Reporter
+    - Source host/IP and destination host/IP or FQDN
+    - Port(s) and protocol (TCP/UDP/ICMP)
+    - Time the failure started and whether it is intermittent or
+      constant
+    - Error message or behavior observed (timeout, RST, refused,
+      DNS failure)
+    - Whether the connection previously worked and, if known, what
+      changed
+
+2.2 Quick Classification
+    - "Cannot resolve name" -> start at Section 3 (DNS)
+    - "Resolves but times out" -> start at Section 4 (Routing) then
+      Section 5 (Firewall)
+    - "Connection refused / reset immediately" -> start at Section
+      5 (Firewall) or check destination service state
+    - "Worked yesterday, not today" -> check change log first
+      (Section 6.1) before deep diagnosis
+
+3. DNS VS. ROUTING VS. FIREWALL DIAGNOSIS
+--------------------------------------------------------------------
+3.1 DNS Checks (perform first — cheapest to rule out)
+    - Resolve the destination name from the source host and from a
+      known-good reference host:
+          nslookup <fqdn>
+          dig <fqdn> @<internal-resolver>
+          dig <fqdn> @<external-resolver>
+    - Compare results; a mismatch between internal and external
+      resolution often indicates split-horizon DNS misconfiguration
+      rather than a security issue.
+    - If DNS fails entirely, escalate to the DNS/Platform team
+      (see network_security_runbook.txt Section 8 for escalation
+      contacts) — this is outside NSO scope unless DNS is served
+      from a security appliance.
+
+3.2 Routing Checks
+    - Confirm the source has a valid route to the destination
+      subnet:
+          traceroute <destination>
+          show ip route <destination>
+    - Identify the last responding hop. If the trace dies at a
+      known firewall hop, proceed to Section 5. If it dies at an
+      intermediate router with no firewall function, this is a
+      routing issue — escalate to Network Engineering.
+    - Check for asymmetric routing, which can cause firewalls in
+      stateful mode to silently drop return traffic.
+
+3.3 Firewall Checks
+    - If DNS resolves and routing is confirmed, check firewall
+      session/deny logs for the specific 5-tuple (src, dst,
+      sport, dport, protocol):
+          show session all filter source <ip> destination <ip>
+          show log deny filter destination-port <port>
+    - Confirm whether a deny is explicit (policy match) or the
+      connection never reached the firewall (routing/ACL issue
+      upstream).
+
+4. TCP/UDP CHECKS
+--------------------------------------------------------------------
+4.1 TCP
+    - Use targeted TCP connection tests from an approved probe
+      host (jemtech-probe-01/02):
+          nc -zv <destination> <port>
+          curl -v telnet://<destination>:<port>
+    - A TCP RST typically indicates the destination actively
+      refused the connection (service down or destination-side
+      firewall); a silent timeout typically indicates a drop
+      somewhere in the path.
+
+4.2 UDP
+    - UDP is connectionless, so absence of a response is not
+      conclusive. Use protocol-aware tools where possible (e.g.,
+      dig for DNS/UDP-53, snmpwalk for SNMP) rather than raw UDP
+      probes.
+    - Confirm firewall UDP session timeout settings are not
+      expiring long-lived flows (e.g., persistent SNMP polling)
+      prematurely.
+
+4.3 Interpreting Results
+    - TCP SYN sent, no response at all: check firewall drop logs
+      and intermediate ACLs (Section 5).
+    - TCP SYN sent, RST received from destination IP: likely
+      destination-side (service not listening, host firewall) —
+      confirm with destination host owner.
+    - TCP SYN sent, RST received from an intermediate hop: likely
+      an intermediate security device actively rejecting — check
+      that device's policy.
+
+5. PACKET CAPTURES
+--------------------------------------------------------------------
+5.1 When to Capture
+    - Use packet captures when log analysis alone does not explain
+      the behavior, or when intermittent issues need to be caught
+      in the act.
+
+5.2 Capture Guidelines
+    - Capture as close to the source and as close to the
+      destination as possible (ideally both) to isolate where the
+      packet is lost.
+    - Use a tight filter to avoid capturing unrelated traffic and
+      to respect data minimization requirements:
+          tcpdump -i <interface> host <src> and host <dst> and
+              port <port> -w capture.pcap
+    - Time-box captures (default 5 minutes) and store them in the
+      incident case folder, not on local engineer workstations.
+
+5.3 Analysis
+    - Confirm whether SYN packets leave the source interface.
+    - Confirm whether SYN packets arrive at the destination-facing
+      interface of the firewall/router.
+    - A SYN visible on ingress but not egress of a firewall
+      interface confirms a firewall drop — cross-reference with
+      the rule/policy hit counters.
+
+6. LOG ANALYSIS
+--------------------------------------------------------------------
+6.1 Correlate with Recent Changes
+    - Before deep packet-level analysis, check the change log
+      (JemCM) for any changes to the affected devices or zones in
+      the relevant time window.
+
+6.2 Firewall Deny Log Fields to Check
+    - Rule/policy name matched (or "no matching rule" / implicit
+      deny)
+    - Source zone and destination zone
+    - NAT translation applied (if any) — confirm the destination
+      IP/port seen by the firewall matches expectation post-NAT
+    - Session state (new, established, closing)
+
+6.3 Cross-Device Correlation
+    - For multi-hop paths, correlate timestamps across the source
+      switch, routing layer, and firewall logs in JemSIEM using
+      the incident time window to build a single timeline.
+
+6.4 Common Root Causes Observed at JemTechnologies
+    - Implicit deny due to a rule being scoped to the wrong zone
+      after a topology change
+    - NAT rule mismatch after an IP re-addressing project
+    - Asymmetric routing following a link failover
+    - Expired or unrenewed VPN/ZTNA session causing apparent
+      "firewall" failures that are actually authentication-layer
+
+7. HANDOFF CRITERIA
+--------------------------------------------------------------------
+- If root cause is confirmed as firewall policy, proceed to
+  firewall_change_procedure.txt to implement a fix through the
+  standard change process.
+- If root cause is DNS or routing and outside NSO's device scope,
+  hand off to the owning team with the full diagnostic timeline
+  attached to the ticket.
+- If any evidence suggests malicious intent (unexpected scanning,
+  credential stuffing, unauthorized rule changes), stop
+  troubleshooting-only mode and open a security incident per
+  network_security_runbook.txt.
+
+====================================================================
+End of Document — NST-TS-004
+====================================================================
