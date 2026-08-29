@@ -24,7 +24,7 @@ class ChromaVectorStore(VectorStore):
         documents = [chunk.content for chunk in chunks]
         metadatas = [chunk.metadata for chunk in chunks]
 
-        self.collection.add(
+        self.collection.upsert(
             ids=ids,
             documents=documents,
             embeddings=embeddings,
