@@ -19,10 +19,7 @@ class ChromaVectorStore(VectorStore):
         if len(chunks) != len(embeddings):
             raise ValueError("Number of chunks must match number of the embeddings")
 
-        ids = [
-            f"{chunk.source}:{chunk.chunk_index}"
-            for chunk in chunks
-        ]
+        ids = [self._create_id(chunk) for chunk in chunks]
 
         documents = [chunk.content for chunk in chunks]
         metadatas = [chunk.metadata for chunk in chunks]
@@ -64,3 +61,15 @@ class ChromaVectorStore(VectorStore):
             )
 
         return chunks
+
+    def _create_id(self, chunk: DocumentChunk) -> str:
+        page_number = chunk.metadata.get("page_number")
+
+        if page_number is not None:
+            return (
+                f"{chunk.source}:"
+                f"page-{page_number}:"
+                f"chunk-{chunk.chunk_index}"
+            )
+
+        return f"{chunk.source}:chunk-{chunk.chunk_index}"
