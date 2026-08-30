@@ -11,5 +11,3 @@ class KnowledgeBaseService:
 
     def search(self, query: str, top_k: int = 5) -> list[DocumentChunk]:
         return self.retriever.retrieve(query=query, top_k=top_k)
-
-    
