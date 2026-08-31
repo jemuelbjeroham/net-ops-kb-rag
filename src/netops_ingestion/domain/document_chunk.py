@@ -10,4 +10,4 @@ class DocumentChunk:
     content: str
     source: Path
     chunk_index: int
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)

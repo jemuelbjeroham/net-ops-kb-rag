@@ -22,7 +22,14 @@ class ChromaVectorStore(VectorStore):
         ids = [self._create_id(chunk) for chunk in chunks]
 
         documents = [chunk.content for chunk in chunks]
-        metadatas = [chunk.metadata for chunk in chunks]
+        metadatas = [
+            {
+                **chunk.metadata,
+                "source": str(chunk.source),
+                "chunk_index": chunk.chunk_index,
+            }
+            for chunk in chunks
+        ]
 
         self.collection.upsert(
             ids=ids,
@@ -54,7 +61,7 @@ class ChromaVectorStore(VectorStore):
                 DocumentChunk(
                     content=document,
                     source=Path(source),
-                    chunk_index=int(chunk_index),
+                    chunk_index=int(chunk_index.removeprefix("chunk-")),
                     metadata=metadata,
 
                 )
