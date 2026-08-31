@@ -46,24 +46,19 @@ class ChromaVectorStore(VectorStore):
 
         documents = result["documents"][0]
         metadatas = result["metadatas"][0]
-        ids = result["ids"][0]
 
         chunks = []
 
-        for document, metadata, chunk_id in zip(
+        for document, metadata in zip(
             documents,
             metadatas,
-            ids,
         ):
-            source, chunk_index = chunk_id.rsplit(":", 1)
-
             chunks.append(
                 DocumentChunk(
                     content=document,
-                    source=Path(source),
-                    chunk_index=int(chunk_index.removeprefix("chunk-")),
+                    source=Path(metadata["source"]),
+                    chunk_index=int(metadata["chunk_index"]),
                     metadata=metadata,
-
                 )
             )
 
